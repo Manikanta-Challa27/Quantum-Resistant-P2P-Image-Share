@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-Vault | P2P Secure Transfer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .drop-zone { transition: all 0.2s ease-in-out; }
+        .drop-zone-over { background-color: #e0f2fe; border-color: #0284c7; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .status-disconnected { background-color: #ef4444; }
+        .status-connecting { background-color: #f59e0b; }
+        .status-connected { background-color: #22c55e; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-lg p-8">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Q-Vault Secure Transfer</h1>
+            <p class="mt-2 text-gray-600">End-to-end quantum-resistant file transfer using WebRTC.</p>
+        </div>
+
+        <div class="flex items-center justify-center space-x-2 mb-6 p-3 bg-gray-50 rounded-lg">
+            <div id="status-dot" class="status-dot status-disconnected"></div>
+            <span id="status-text" class="font-medium text-gray-700">Status: Disconnected</span>
+        </div>
+
+        <!-- Sender Section -->
+        <div id="sender-section" class="mb-8">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">Sender</h2>
+            <div id="sender-drop-zone" class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer">
+                <p>Drag & drop a color image to send</p>
+                <p id="sender-file-name" class="mt-2 text-sm text-green-600 font-medium"></p>
+            </div>
+            <input type="file" id="file-input" class="hidden" accept="image/*">
+            <button id="send-btn" class="mt-4 w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 disabled:bg-gray-400" disabled>
+                Encrypt & Send
+            </button>
+        </div>
+
+        <!-- Receiver Section -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">Receiver</h2>
+            <div id="receiver-area" class="p-4 bg-gray-50 rounded-lg min-h-[150px] flex items-center justify-center">
+                <p id="receiver-placeholder" class="text-gray-500">Waiting to receive a file...</p>
+                <div id="receiver-result" class="hidden w-full text-center">
+                    <img id="received-image" class="max-w-full max-h-64 rounded-md mx-auto" />
+                    <button id="download-btn" class="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700">
+                        Download Decrypted Image
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const JAVA_SERVER_URL = 'http://10.106.233.17:7070';
+        const SIGNALING_SERVER_URL = 'http://10.106.233.17:8080';
+        const CHUNK_SIZE = 16384; // 16KB
+
+        // --- DOM ELEMENTS ---
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const senderDropZone = document.getElementById('sender-drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const senderFileName = document.getElementById('sender-file-name');
+        const sendBtn = document.getElementById('send-btn');
+        const receiverPlaceholder = document.getElementById('receiver-placeholder');
+        const receiverResult = document.getElementById('receiver-result');
+        const receivedImage = document.getElementById('received-image');
+        const downloadBtn = document.getElementById('download-btn');
+
+        // --- GLOBAL STATE ---
+        let localFile = null;
+        let peerConnection;
+        let dataChannel;
+
+        // --- WEBRTC AND SIGNALING LOGIC ---
+        const socket = io(SIGNALING_SERVER_URL);
+        statusText.textContent = 'Status: Connecting to Signaling Server...';
+        statusDot.className = 'status-dot status-connecting';
+
+        socket.on('connect', () => {
+            console.log('Connected to signaling server!');
+            statusText.textContent = 'Status: Waiting for another user...';
+        });
+
+        socket.on('start-webrtc', () => {
+            console.log('Server designated this client as initiator.');
+            createPeerConnection(true); // true = isInitiator
+        });
+
+        socket.on('signal', async (data) => {
+            if (!peerConnection) createPeerConnection(false);
+
+            if (peerConnection.signalingState === 'closed') return;
+            
+            if (data.offer && peerConnection.signalingState === 'stable') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('signal', { answer });
+            } else if (data.answer && peerConnection.signalingState === 'have-local-offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.iceCandidate) {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.iceCandidate));
+                } catch (e) { console.error('Error adding received ice candidate', e); }
+            }
+        });
+
+        function createPeerConnection(isInitiator) {
+            const configuration = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
+            peerConnection = new RTCPeerConnection(configuration);
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('signal', { iceCandidate: event.candidate });
+                }
+            };
+
+            peerConnection.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                setupDataChannelEvents();
+            };
+            
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                 if (state === 'connected') {
+                    statusText.textContent = 'Status: Connected!';
+                    statusDot.className = 'status-dot status-connected';
+                    sendBtn.disabled = localFile === null;
+                } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+                    statusText.textContent = 'Status: Disconnected';
+                    statusDot.className = 'status-dot status-disconnected';
+                    sendBtn.disabled = true;
+                }
+            };
+
+            if (isInitiator) {
+                dataChannel = peerConnection.createDataChannel('fileTransfer');
+                setupDataChannelEvents();
+                peerConnection.createOffer()
+                    .then(offer => peerConnection.setLocalDescription(offer))
+                    .then(() => {
+                        socket.emit('signal', { offer: peerConnection.localDescription });
+                    });
+            }
+        }
+        
+        // --- CHUNKING AND REASSEMBLY LOGIC ---
+        let receivedChunks = [];
+        let totalChunks = 0;
+
+        function setupDataChannelEvents() {
+            dataChannel.onopen = () => console.log('Data channel is open!');
+            dataChannel.onclose = () => console.log('Data channel is closed.');
+            dataChannel.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'start') {
+                    totalChunks = message.totalChunks;
+                    receivedChunks = [];
+                    receiverPlaceholder.textContent = `Receiving file... 0%`;
+                } else if (message.type === 'chunk') {
+                    receivedChunks.push(message.payload);
+                    const progress = Math.round((receivedChunks.length / totalChunks) * 100);
+                    receiverPlaceholder.textContent = `Receiving file... ${progress}%`;
+                    
+                    if (receivedChunks.length === totalChunks) {
+                        receiverPlaceholder.textContent = `File received. Decrypting...`;
+                        const fullPacket = JSON.parse(receivedChunks.join(''));
+                        
+                        const imageR = base64ToBlob(fullPacket.payload_r);
+                        const imageG = base64ToBlob(fullPacket.payload_g);
+                        const imageB = base64ToBlob(fullPacket.payload_b);
+
+                        const formData = new FormData();
+                        formData.append('image_r', imageR, 'r.png');
+                        formData.append('image_g', imageG, 'g.png');
+                        formData.append('image_b', imageB, 'b.png');
+                        formData.append('width', fullPacket.width);
+                        formData.append('height', fullPacket.height);
+
+                        try {
+                            const response = await fetch(`${JAVA_SERVER_URL}/decrypt`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            if (!response.ok) throw new Error('Decryption failed on server.');
+
+                            const finalImageBlob = await response.blob();
+                            receiverPlaceholder.classList.add('hidden');
+                            receivedImage.src = URL.createObjectURL(finalImageBlob);
+                            receiverResult.classList.remove('hidden'); // Show the result div
+
+                        } catch (error) {
+                            console.error('Decryption error:', error);
+                            receiverPlaceholder.textContent = 'Decryption failed.';
+                        }
+                    }
+                }
+            };
+        }
+
+        // --- UI AND FILE HANDLING ---
+        function setupDropZone(zone, input, fileHandler) {
+            zone.addEventListener('click', () => input.click());
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                zone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); });
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                zone.addEventListener(eventName, () => zone.classList.add('drop-zone-over'));
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                zone.addEventListener(eventName, () => zone.classList.remove('drop-zone-over'));
+            });
+            zone.addEventListener('drop', e => {
+                if (e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    fileHandler(e.dataTransfer.files[0]);
+                }
+            });
+            input.addEventListener('change', e => {
+                if (e.target.files.length) fileHandler(e.target.files[0]);
+            });
+        }
+
+        setupDropZone(senderDropZone, fileInput, file => {
+            localFile = file;
+            senderFileName.textContent = file.name;
+            if (peerConnection && peerConnection.connectionState === 'connected') {
+                sendBtn.disabled = false;
+            }
+        });
+
+        sendBtn.addEventListener('click', async () => {
+            if (!localFile || !dataChannel || dataChannel.readyState !== 'open') return;
+            sendBtn.textContent = 'Encrypting...';
+            sendBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('image', localFile);
+
+            try {
+                const response = await fetch(`${JAVA_SERVER_URL}/encrypt`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error('Encryption failed on server.');
+
+                const encryptedData = await response.json();
+                sendBtn.textContent = 'Sending...';
+
+                const dataPacket = JSON.stringify({
+                    width: encryptedData.width,
+                    height: encryptedData.height,
+                    payload_r: encryptedData.image_r,
+                    payload_g: encryptedData.image_g,
+                    payload_b: encryptedData.image_b
+                });
+
+                const totalChunks = Math.ceil(dataPacket.length / CHUNK_SIZE);
+                dataChannel.send(JSON.stringify({ type: 'start', totalChunks }));
+
+                for (let i = 0; i < totalChunks; i++) {
+                    const start = i * CHUNK_SIZE;
+                    const end = start + CHUNK_SIZE;
+                    const chunk = dataPacket.substring(start, end);
+                    dataChannel.send(JSON.stringify({ type: 'chunk', payload: chunk }));
+                }
+
+                sendBtn.textContent = 'Encrypt & Send';
+                sendBtn.disabled = false;
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Make sure your Java Encryption Server is running.');
+                sendBtn.textContent = 'Encrypt & Send';
+                sendBtn.disabled = false;
+            }
+        });
+        
+        // THE FIX: Add event listener for the new download button
+        downloadBtn.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = receivedImage.src;
+            a.download = 'decrypted_image.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        function base64ToBlob(base64) {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            return new Blob([byteArray], {type: 'image/png'});
+        }
+    </script>
+</body>
+</html>
