@@ -27,28 +27,6 @@ The application consists of three core components that work together:
 3. **Q-Vault Front-End Client**  
    A single-page web application built with HTML, Tailwind CSS, and JavaScript that users interact with.  
    It communicates with both backend servers to facilitate the secure, peer-to-peer transfer.
-```bash
-\+----------------+                             +----------------+
-|  User A Browser|                             |  User B Browser|
-| (index.html)   |                             | (index.html)   |
-\+-------+--------+                             +--------+-------+
-|                                                |
-(1. Find each other)                                     |
-|             +--------------------+             |
-\+------------\>| Node.js Signaling  |\<------------+
-| Server (Matchmaker)|
-\+--------------------+
-|                                                |
-(2. Encrypt/Decrypt)                               (4. Decrypt)
-|             +--------------------+             |
-\+------------\>|  Java Encryption   |\<------------+
-|             |   Server (NTRU)    |             |
-|             +--------------------+             |
-|                                                |
-|                                                |
-\<------------------------------------------------\>
-(3. Direct P2P Data Transfer via WebRTC)
-```
 
 ## 🚀 Features
 
