@@ -61,12 +61,12 @@
     </div>
 
     <script>
-        // --- CONFIGURATION ---
+        // CONFIGURATION 
         const JAVA_SERVER_URL = 'http://10.106.233.17:7070';
         const SIGNALING_SERVER_URL = 'http://10.106.233.17:8080';
         const CHUNK_SIZE = 16384; // 16KB
 
-        // --- DOM ELEMENTS ---
+        // DOM ELEMENTS 
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
         const senderDropZone = document.getElementById('sender-drop-zone');
@@ -78,12 +78,12 @@
         const receivedImage = document.getElementById('received-image');
         const downloadBtn = document.getElementById('download-btn');
 
-        // --- GLOBAL STATE ---
+        // GLOBAL STATE 
         let localFile = null;
         let peerConnection;
         let dataChannel;
 
-        // --- WEBRTC AND SIGNALING LOGIC ---
+        // WEBRTC AND SIGNALING LOGIC 
         const socket = io(SIGNALING_SERVER_URL);
         statusText.textContent = 'Status: Connecting to Signaling Server...';
         statusDot.className = 'status-dot status-connecting';
@@ -156,7 +156,7 @@
             }
         }
         
-        // --- CHUNKING AND REASSEMBLY LOGIC ---
+        // CHUNKING AND REASSEMBLY LOGIC 
         let receivedChunks = [];
         let totalChunks = 0;
 
@@ -211,7 +211,7 @@
             };
         }
 
-        // --- UI AND FILE HANDLING ---
+        // UI AND FILE HANDLING 
         function setupDropZone(zone, input, fileHandler) {
             zone.addEventListener('click', () => input.click());
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -289,7 +289,6 @@
             }
         });
         
-        // THE FIX: Add event listener for the new download button
         downloadBtn.addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = receivedImage.src;
