@@ -27,7 +27,7 @@ The application consists of three core components that work together:
 3. **Q-Vault Front-End Client**  
    A single-page web application built with HTML, Tailwind CSS, and JavaScript that users interact with.  
    It communicates with both backend servers to facilitate the secure, peer-to-peer transfer.
-
+```bash
 \+----------------+                             +----------------+
 |  User A Browser|                             |  User B Browser|
 | (index.html)   |                             | (index.html)   |
@@ -48,6 +48,7 @@ The application consists of three core components that work together:
 |                                                |
 \<------------------------------------------------\>
 (3. Direct P2P Data Transfer via WebRTC)
+```
 
 ## 🚀 Features
 
@@ -105,31 +106,6 @@ node server.js
 
 The server will start and you will see the message:
 🚀 Signaling Server is running on http://localhost:8080.
-
-### 3. The Front-End Client
-
-This is the user interface. Before launching, you must configure it to connect to the computer running the servers.
-
-1. **Find the Local IP Address** of the computer that is running the Java and Node.js servers (the "Host" machine).  
-   - On Windows: `ipconfig`  
-   - On macOS/Linux: `ifconfig`  
-   The IP address will look like `192.168.1.5`.
-
-2. **Update the `index.html` file**:
-   - Open the `Q-Vault-Client/index.html` file in a text editor.
-   - Find these two lines at the top of the `<script>` tag:
-
-     ```javascript
-     const JAVA_SERVER_URL = 'http://localhost:7070';
-     const SIGNALING_SERVER_URL = 'http://localhost:8080';
-     ```
-
-   - Replace `localhost` with the IP address of your Host machine. For example:
-
-     ```javascript
-     const JAVA_SERVER_URL = 'http://192.168.1.5:7070';
-     const SIGNALING_SERVER_URL = 'http://192.168.1.5:8080';
-     ```
 
 3. **Launch the Application**:  
    Open the modified `index.html` file in a web browser on two different devices connected to the same network.
