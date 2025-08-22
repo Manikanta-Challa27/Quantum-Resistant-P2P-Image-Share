@@ -1,5 +1,3 @@
-// File: server.js (Corrected Version)
-
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -21,7 +19,6 @@ io.on('connection', (socket) => {
   console.log(`✅ User connected: ${socket.id}`);
   clients.push(socket.id);
 
-  // When the second client connects, explicitly tell the FIRST client to start the process.
   if (clients.length === 2) {
     console.log(`Two users connected. Designating initiator: ${clients[0]}`);
     io.to(clients[0]).emit('start-webrtc');
