@@ -28,44 +28,25 @@ The application consists of three core components that work together:
    A single-page web application built with HTML, Tailwind CSS, and JavaScript that users interact with.  
    It communicates with both backend servers to facilitate the secure, peer-to-peer transfer.
 
-+----------------+ +----------------+
-| User A Browser | | User B Browser|
-| (index.html) | | (index.html) |
-+-------+---------+ +---------+------+
-| |
-| (1. Find each other) |
-| +-------------------+ |
-+------->| Node.js Signaling |<---------+
-| Server (Matchmaker) |
-+-------------------+
-| |
-| (2. Encrypt/Decrypt) | (4. Decrypt)
-| +-------------------+ |
-+------->| Java Encryption |<---------+
-| Server (NTRU) |
-+-------------------+
-| |
----------------------------------------/
-(3. Direct P2P Data Transfer via WebRTC)
-
-+----------------+ +----------------+
-| User A Browser | | User B Browser |
-| (index.html) | | (index.html) |
-+-------+--------+ +--------+-------+
-| |
-| (1. Find each other) |
-| +-------------------+ |
-+------->| Node.js Signaling |<---------+
+\+----------------+                             +----------------+
+|  User A Browser|                             |  User B Browser|
+| (index.html)   |                             | (index.html)   |
+\+-------+--------+                             +--------+-------+
+|                                                |
+(1. Find each other)                                     |
+|             +--------------------+             |
+\+------------\>| Node.js Signaling  |\<------------+
 | Server (Matchmaker)|
-+-------------------+
-| |
-| (2. Encrypt/Decrypt) | (4. Decrypt)
-| +-------------------+ |
-+------->| Java Encryption |<---------+
-| Server (NTRU) |
-+-------------------+
-| |
----------------------------------------/
+\+--------------------+
+|                                                |
+(2. Encrypt/Decrypt)                               (4. Decrypt)
+|             +--------------------+             |
+\+------------\>|  Java Encryption   |\<------------+
+|             |   Server (NTRU)    |             |
+|             +--------------------+             |
+|                                                |
+|                                                |
+\<------------------------------------------------\>
 (3. Direct P2P Data Transfer via WebRTC)
 
 ## 🚀 Features
@@ -102,6 +83,7 @@ mvn package
 
 # Run the server
 java -jar target/ntru-encryption-server-1.0-SNAPSHOT-jar-with-dependencies.jar
+```
 
 The server will start and you will see the message:
 ✅ Encryption Server started on port 7070.
@@ -119,6 +101,7 @@ npm install
 
 # Run the server
 node server.js
+```
 
 The server will start and you will see the message:
 🚀 Signaling Server is running on http://localhost:8080.
