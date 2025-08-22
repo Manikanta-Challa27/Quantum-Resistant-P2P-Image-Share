@@ -1,5 +1,3 @@
-// File: EncryptionServer.java
-
 import io.javalin.Javalin;
 import io.javalin.http.UploadedFile;
 import javax.imageio.ImageIO;
@@ -13,14 +11,10 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
-// THE FIX: Added the missing import for IOException
 import java.io.IOException;
 
 
 public class EncryptionServer {
-
-    // --- All of your existing NTRU and Image Processing methods go here ---
-    // I have copied them directly from your final working version.
 
     public static int[] getBestFactorPair(int number) {
         int minDifference = Integer.MAX_VALUE;
@@ -188,7 +182,7 @@ public class EncryptionServer {
         return reconstructedImage;
     }
 
-    // --- Main Server Logic ---
+    // Main Server Logic
     public static void main(String[] args) {
         Javalin app = Javalin.create(config -> {
             config.plugins.enableCors(cors -> cors.add(it -> it.anyHost()));
